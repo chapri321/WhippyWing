@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Whippy Wing</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; user-select: none; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+        body { display: flex; justify-content: center; align-items: center; }
+        #game-container { position: relative; overflow: hidden; background: #70c5ce; transition: background 0.5s ease; width: 100%; height: 100%; }
+        canvas { display: block; touch-action: none; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 20px; z-index: 10; }
+        .hidden { display: none !important; }
+        h1 { color: #ffeb3b; font-size: 22px; margin-bottom: 8px; text-shadow: 2px 2px #000; }
+        h2 { color: #ff5722; font-size: 22px; margin-bottom: 10px; text-shadow: 2px 2px #000; }
+        p { font-size: 13px; margin: 6px 0; color: #eee; line-height: 1.3; }
+        .stats { font-size: 14px; margin-bottom: 14px; }
+        .lvl-text { color: #ff9800; font-weight: bold; }
+        .money-text { color: #4caf50; font-weight: bold; }
+        button { background: #4caf50; color: white; border: none; padding: 12px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 25px; margin: 8px; box-shadow: 0 5px #2e7d32; transition: all 0.1s ease; }
+        button:active { transform: scale(0.9) translateY(4px); box-shadow: 0 1px #2e7d32; }
+        button.quit-btn { background: #f44336; box-shadow: 0 5px #c62828; }
+        button.quit-btn:active { box-shadow: 0 1px #c62828; }
+        button:disabled { background: #777; box-shadow: 0 5px #444; cursor: not-allowed; }
+        button.secret-btn { background: #000; color: #fff; border: 2px solid #444; box-shadow: 0 5px #222; animation: pulseBlack 1.5s infinite ease-in-out; }
+        button.secret-btn:active { transform: scale(0.9) translateY(4px); box-shadow: 0 1px #222; }
+        @keyframes pulseBlack { 0% { box-shadow: 0 5px #222, 0 0 10px rgba(0,0,0,0.6); } 50% { box-shadow: 0 5px #222, 0 0 20px rgba(255,255,255,0.15); } 100% { box-shadow: 0 5px #222, 0 0 10px rgba(0,0,0,0.6); } }
+        #rotate-message { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; z-index: 9999; justify-content: center; align-items: center; text-align: center; font-size: 20px; flex-direction: column; padding: 20px; }
+        #rotate-message .icon { font-size: 48px; margin-bottom: 16px; }
+        @media (orientation: portrait) and (pointer: coarse) { #rotate-message.show-mobile { display: flex; } #game-container { display: none; } }
+        .corner-btn { position: absolute; top: 10px; z-index: 15; padding: 6px 12px; font-size: 12px; border-radius: 5px; margin: 0; }
+        #pause-btn { right: 10px; background: #ff9800; box-shadow: 0 3px #e65100; }
+        #pause-btn:active { box-shadow: 0 1px #e65100; }
+        .shop-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-height: 280px; overflow-y: auto; width: 100%; padding: 5px; }
+        .shop-item { position: relative; background: #333; padding: 10px; border-radius: 8px; border: 2px solid #555; display: flex; flex-direction: column; align-items: center; transition: border-color 0.3s ease; }
+        .shop-item.active { border-color: #ffeb3b; background: #443f20; }
+        .shop-item.locked { filter: grayscale(80%) brightness(0.5); border-color: #2a2a2a; }
+        .shop-item.recommended-yellow { border: 2.5px solid #f5b041 !important; }
+        .rec-badge { position: absolute; top: -8px; background: #ff5722; color: white; font-size: 8px; padding: 2px 6px; border-radius: 10px; font-weight: bold; text-transform: uppercase; box-shadow: 0 2px 4px rgba(0,0,0,0.3); z-index: 2; }
+        .bird-preview-container { position: relative; width: 60px; height: 40px; margin-bottom: 5px; display: flex; justify-content: center; align-items: center; }
+        .lock-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 1; pointer-events: none; }
+        .lock-overlay span { font-size: 28px; color: rgba(255,255,255,0.7); text-shadow: 0 0 10px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5); filter: none; }
+        .video-box { width: 80%; height: 180px; background: #111; border: 2px dashed #333; display: flex; justify-content: center; align-items: center; font-size: 20px; font-weight: bold; color: #00bcd4; margin: 20px 0; }
+        #hud { position: absolute; top: 10px; left: 6px; font-weight: bold; text-shadow: 1px 1px #000; z-index: 5; font-size: 13px; color: white; letter-spacing: 0.5px; }
+        #hud-mode { color: #9c27b0; font-weight: bold; }
+        .hud-sep { color: #888; margin: 0 6px; font-weight: normal; }
+        .hud-label { color: #aaa; font-size: 11px; margin-right: 2px; }
+        .sparkle { position: absolute; pointer-events: none; font-size: 20px; animation: sparkleFade 1s ease-out forwards; }
+        @keyframes sparkleFade { 0% { opacity: 1; transform: scale(1) translateY(0); } 100% { opacity: 0; transform: scale(0.3) translateY(-60px); } }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="hud"><span id="hud-mode"></span><span class="hud-label">Lv</span><span id="hud-level" class="lvl-text">1</span><span class="hud-sep">|</span><span class="hud-label">Sc</span><span id="hud-score">0</span>/<span id="hud-target">5</span><span class="hud-sep">|</span><span class="hud-label">$</span><span id="hud-coins" class="money-text">0</span></div>
+        <button id="pause-btn" class="corner-btn hidden">PAUSE</button>
+        <div id="menu-screen" class="screen">
+            <h1 id="menu-title">WHIPPY WING</h1>
+            <div id="highscore-bar" style="display:none;position:absolute;left:10px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.7);padding:15px;border-radius:10px;text-align:center;color:#fff;">
+                <div style="font-size:11px;color:#aaa;margin-bottom:4px;">HIGH SCORE</div>
+                <div id="hs-display" style="font-size:32px;font-weight:bold;color:#ffeb3b;">0</div>
+            </div>
+            <div class="stats">Cash: 💵<span id="menu-coins" class="money-text">0</span></div>
+            <button id="start-btn">PLAY GAME</button>
+            <button id="open-shop-btn" style="background:#e53935;box-shadow:0 5px #b71c1c;">BIRD SHOP</button>
+        </div>
+        <div id="shop-screen" class="screen hidden">
+            <h1>SHOP</h1>
+            <div class="stats">Your Cash: 💵 <span id="shop-coins" class="money-text">0</span></div>
+            <div class="shop-grid" id="shop-grid"></div>
+            <button id="close-shop-btn" class="quit-btn">BACK</button>
+        </div>
+        <div id="death-screen" class="screen hidden">
+            <h2 id="death-title">DIED</h2>
+            <p id="death-msg">Crashed. Play again to collect coins.</p>
+            <button id="restart-btn">PLAY AGAIN</button>
+            <button id="home-btn" class="quit-btn hidden" style="background:#2196f3;box-shadow:0 5px #1565c0;">HOME</button>
+            <button id="death-quit-btn" class="quit-btn">MENU</button>
+        </div>
+
+        <div id="pause-screen" class="screen hidden">
+            <h2>PAUSED</h2>
+            <p>Progress saved. Take a break.</p>
+            <button id="resume-btn">RESUME</button>
+        </div>
+
+        <div id="win-screen" class="screen hidden">
+            <h1 id="win-title">🎉 VICTORY! 🎉</h1>
+            <p id="win-msg">Beat all 10 levels! Thanks for playing.</p>
+            <button id="secret-btn" class="secret-btn hidden">Secrect Level</button>
+            <button id="openworld-btn" class="secret-btn hidden" style="background:#ff9800;box-shadow:0 5px #e65100;">OPEN WORLD</button>
+            <button id="win-quit-btn" class="quit-btn">RESTART ALL</button>
+        </div>
+    </div>
+    <div id="rotate-message">
+        <div class="icon">↻</div>
+        <div>Please rotate your device to <strong>landscape</strong> for the best experience</div>
+    </div>
+    <script>
+        // ========== STORAGE (safe for file://) ==========
+        const storage = (function() {
+            try { const k = '__test__'; localStorage.setItem(k, '1'); localStorage.removeItem(k); return localStorage; }
+            catch(e) { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)), removeItem: k => m.delete(k), clear: () => m.clear() }; }
+        })();
+
+        // ========== RESPONSIVE SETUP ==========
+        const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+        const GW = 960, GH = 540;
+        let scaleFactor = 1, offsetX = 0, offsetY = 0, groundScroll = 0;
+
+        function resizeGame() {
+            const container = document.getElementById('game-container');
+            const w = window.innerWidth, h = window.innerHeight;
+            canvas.width = Math.round(w); canvas.height = Math.round(h);
+            const sx = w / GW, sy = h / GH;
+            scaleFactor = Math.max(sx, sy);
+            offsetX = (w - GW * scaleFactor) / 2;
+            offsetY = (h - GH * scaleFactor) / 2;
+            container.style.width = w + 'px'; container.style.height = h + 'px';
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const tapImg = new Image();
+        tapImg.src = 'tap-hand.png';
+        window.addEventListener('resize', resizeGame);
+        resizeGame();
+
+        // ========== MOBILE ORIENTATION HANDLING ==========
+        if (isMobile) {
+            const rotateMsg = document.getElementById('rotate-message');
+            function checkOrientation() {
+                const isPortrait = window.innerHeight > window.innerWidth;
+                rotateMsg.classList.toggle('show-mobile', isPortrait);
+                document.getElementById('game-container').style.display = isPortrait ? 'none' : '';
+            }
+            window.addEventListener('resize', checkOrientation);
+            checkOrientation();
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(function(){});
+            }
+        }
+
+        // ========== GAME STATE ==========
+        let gameState = "MENU";
+        let level = 1, score = 0, savedScoreCheckpoint = 0, coins = 0, deathStreakCount = 0, targetScore = 5, levelWinPending = false;
+        let wingFrameCounter = 0;
+        let birdY = Math.round(GH / 2 - 20), birdVelocity = 0, gravity = 0.32, pipes = [], pipeTimer = 0;
+        let readyTime = 0;
+        let isSecretMode = false;
+        let isOpenWorld = false;
+        let winCelebrationTime = 0;
+        let deathDropY = 0, deathDropVel = 0;
+        let openWorldHighScore = parseInt(storage.getItem('fb_ow_highscore') || '0');
+
+        // ========== SOUND ==========
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                if (type === 'death') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'buy') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'win') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.1);
+                    osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.2);
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+                } else if (type === 'bigwin') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659, audioCtx.currentTime + 0.15);
+                    osc.frequency.setValueAtTime(784, audioCtx.currentTime + 0.3);
+                    osc.frequency.setValueAtTime(1047, audioCtx.currentTime + 0.45);
+                    gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 1.0);
+                    osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+                } else if (type === 'jump') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 0.06);
+                    osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.12);
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.13);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.13);
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.03);
+                    gain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.05);
+                } else if (type === 'secret') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(330, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime + 0.15);
+                    osc.frequency.setValueAtTime(554, audioCtx.currentTime + 0.3);
+                    osc.frequency.setValueAtTime(740, audioCtx.currentTime + 0.45);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.8);
+                }
+            } catch(e) {}
+        }
+
+        // ========== BIRDS ==========
+        const birdsData = [
+            { id: 1, name: "Baby Chick", color: "#ffff00", speed: 2.5, jump: -5.8, price: 0 },
+            { id: 2, name: "Blue Jay", color: "#00bfff", speed: 2.8, jump: -6.0, price: 50 },
+            { id: 3, name: "Robin", color: "#ff4500", speed: 3.0, jump: -6.2, price: 100 },
+            { id: 4, name: "Parrot", color: "#00ff00", speed: 3.2, jump: -6.4, price: 200 },
+            { id: 5, name: "Falcon", color: "#8b4513", speed: 3.4, jump: -6.6, price: 300 },
+            { id: 6, name: "Raven", color: "#2f4f4f", speed: 3.6, jump: -6.7, price: 400 },
+            { id: 7, name: "Owl", color: "#d2b48c", speed: 3.8, jump: -6.8, price: 600 },
+            { id: 8, name: "Eagle", color: "#fff8dc", speed: 4.0, jump: -6.9, price: 800 },
+            { id: 9, name: "Phoenix", color: "#ff0000", speed: 4.3, jump: -7.0, price: 1100 },
+            { id: 10, name: "Mecha Bird", color: "#c0c0c0", speed: 4.6, jump: -7.1, price: 1500 }
+        ];
+        const secretBirdsData = [
+            { id: 101, name: "Proto-Drone", color: "#555555", speed: 4.0, jump: -7.0, price: 0 },
+            { id: 102, name: "Cyber-Hawk", color: "#00ff88", speed: 4.4, jump: -7.2, price: 3000 },
+            { id: 103, name: "Volt-Vulture", color: "#ffaa00", speed: 4.7, jump: -7.4, price: 6000 },
+            { id: 104, name: "Nitro-Crow", color: "#ff0044", speed: 5.0, jump: -7.6, price: 10000 },
+            { id: 105, name: "Plasma-Falcon", color: "#8844ff", speed: 5.3, jump: -7.8, price: 15000 },
+            { id: 106, name: "Shadow-Raven X", color: "#1a0033", speed: 5.6, jump: -8.0, price: 22000 },
+            { id: 107, name: "Crystal-Owl V2", color: "#00ccff", speed: 5.9, jump: -8.2, price: 30000 },
+            { id: 108, name: "Solar-Eagle Z", color: "#ff6600", speed: 6.2, jump: -8.4, price: 40000 },
+            { id: 109, name: "Galaxy-Phoenix X", color: "#ff0088", speed: 6.5, jump: -8.6, price: 55000 },
+            { id: 110, name: "Omega-Terminator", color: "#ff0000", speed: 6.8, jump: -9.0, price: 75000 }
+        ];
+
+        let ownedBirds = [1];
+        let currentBirdIndex = 0;
+
+        // ========== THEMES ==========
+        const themes = {
+            1: { bgStart: "#70c5ce", bgEnd: "#bae5e9", pipeMain: "#73bf2e", pipeRim: "#4a8519", name: "Safe Meadow" },
+            2: { bgStart: "#e0b034", bgEnd: "#f5d782", pipeMain: "#b86214", pipeRim: "#703a0a", name: "Rusty Spires" },
+            3: { bgStart: "#417855", bgEnd: "#82b393", pipeMain: "#2e6355", pipeRim: "#13362d", name: "Mossy Swamps" },
+            4: { bgStart: "#803d70", bgEnd: "#cc96bf", pipeMain: "#572b6e", pipeRim: "#2a1038", name: "Industrial Slime" },
+            5: { bgStart: "#cc5a33", bgEnd: "#f0a286", pipeMain: "#cca210", pipeRim: "#7a6104", name: "Desert Canyon" },
+            6: { bgStart: "#28333b", bgEnd: "#546673", pipeMain: "#37454f", pipeRim: "#1a2126", name: "Obsidian Depths" },
+            7: { bgStart: "#173454", bgEnd: "#4c77a1", pipeMain: "#466087", pipeRim: "#22334d", name: "Stormy Coast" },
+            8: { bgStart: "#6b001a", bgEnd: "#ba5067", pipeMain: "#4f0e0e", pipeRim: "#290303", name: "Volcanic Ash" },
+            9: { bgStart: "#38006b", bgEnd: "#8851bf", pipeMain: "#8f5ef0", pipeRim: "#4e239e", name: "Nebula Core" },
+            10: { bgStart: "#0a0a0a", bgEnd: "#262626", pipeMain: "#00e65b", pipeRim: "#00732e", name: "Matrix Grid" }
+        };
+        const secretThemes = {
+            1: { bgStart: "#1a0033", bgEnd: "#3d0066", pipeMain: "#cc0066", pipeRim: "#660033", name: "Void Gate" },
+            2: { bgStart: "#0d1b2a", bgEnd: "#1b2f4a", pipeMain: "#e63946", pipeRim: "#a62633", name: "Blood Moon" },
+            3: { bgStart: "#001f1f", bgEnd: "#003d3d", pipeMain: "#00ff88", pipeRim: "#009955", name: "Toxic Wastes" },
+            4: { bgStart: "#1a0000", bgEnd: "#3d0000", pipeMain: "#ff4400", pipeRim: "#992200", name: "Inferno Core" },
+            5: { bgStart: "#000033", bgEnd: "#000066", pipeMain: "#4444ff", pipeRim: "#2222aa", name: "Abyss Deep" },
+            6: { bgStart: "#1a1a00", bgEnd: "#3d3d00", pipeMain: "#cccc00", pipeRim: "#888800", name: "Golden Tomb" },
+            7: { bgStart: "#0d001a", bgEnd: "#2a004d", pipeMain: "#aa44ff", pipeRim: "#6622aa", name: "Astral Storm" },
+            8: { bgStart: "#001a0d", bgEnd: "#004d2a", pipeMain: "#00ffcc", pipeRim: "#009977", name: "Neon Jungle" },
+            9: { bgStart: "#1a000d", bgEnd: "#4d002a", pipeMain: "#ff0088", pipeRim: "#990055", name: "Crimson Void" },
+            10: { bgStart: "#000000", bgEnd: "#111111", pipeMain: "#ffffff", pipeRim: "#888888", name: "Omega Void" }
+        };
+
+        function getTheme(lvl) {
+            if (isSecretMode) return secretThemes[lvl] || secretThemes[1];
+            return themes[lvl] || themes[1];
+        }
+        function getBirdData() {
+            return isSecretMode ? secretBirdsData : birdsData;
+        }
+        function getBirdsLength() {
+            return isSecretMode ? secretBirdsData.length : birdsData.length;
+        }
+
+        // ========== LO-FI MUSIC ==========
+        let lofiNodes = [];
+        function startLofiMusic() {
+            if (lofiNodes.length > 0) return;
+            try {
+                const bpm = 85;
+                const beatDur = 60 / bpm;
+                const masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                masterGain.connect(audioCtx.destination);
+                lofiNodes.push(masterGain);
+                function scheduleKick(time) {
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(150, time); osc.frequency.exponentialRampToValueAtTime(40, time + 0.1);
+                    gain.gain.setValueAtTime(0.3, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+                    osc.connect(gain); gain.connect(masterGain); osc.start(time); osc.stop(time + 0.15);
+                    lofiNodes.push(osc, gain);
+                }
+                function scheduleSnare(time) {
+                    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.08, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+                    const src = audioCtx.createBufferSource(); src.buffer = buf;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass'; filter.frequency.value = 1000;
+                    gain.gain.setValueAtTime(0.15, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.07);
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                    src.start(time); src.stop(time + 0.08); lofiNodes.push(src, gain, filter);
+                }
+                function scheduleHat(time) {
+                    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.03, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.3));
+                    const src = audioCtx.createBufferSource(); src.buffer = buf;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass'; filter.frequency.value = 5000;
+                    gain.gain.setValueAtTime(0.06, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.025);
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                    src.start(time); src.stop(time + 0.03); lofiNodes.push(src, gain, filter);
+                }
+                const chordNotes = [[261.6, 329.6, 392.0, 523.3], [293.7, 369.9, 440.0, 587.3], [220.0, 277.2, 329.6, 440.0], [246.9, 311.1, 369.9, 493.9]];
+                function scheduleChord(startTime, chordIdx, dur) {
+                    const notes = chordNotes[chordIdx % chordNotes.length];
+                    for (const freq of notes) {
+                        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                        osc.type = 'sawtooth'; osc.frequency.value = freq;
+                        filter.type = 'lowpass'; filter.frequency.value = 400; filter.Q.value = 1;
+                        gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(0.04, startTime + 0.3);
+                        gain.gain.setValueAtTime(0.04, startTime + dur - 0.3); gain.gain.linearRampToValueAtTime(0, startTime + dur);
+                        osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                        osc.start(startTime); osc.stop(startTime + dur); lofiNodes.push(osc, gain, filter);
+                    }
+                }
+                const bassNotes = [130.8, 146.8, 110.0, 123.5];
+                function scheduleBass(startTime, idx, dur) {
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.type = 'triangle'; osc.frequency.value = bassNotes[idx % bassNotes.length];
+                    gain.gain.setValueAtTime(0, startTime); gain.gain.linearRampToValueAtTime(0.08, startTime + 0.05);
+                    gain.gain.setValueAtTime(0.08, startTime + dur - 0.05); gain.gain.linearRampToValueAtTime(0, startTime + dur);
+                    osc.connect(gain); gain.connect(masterGain); osc.start(startTime); osc.stop(startTime + dur);
+                    lofiNodes.push(osc, gain);
+                }
+                function startCrackle() {
+                    const bufSize = audioCtx.sampleRate * 2;
+                    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() - 0.5) * 0.008 * (1 - Math.random() * 0.95);
+                    const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass'; filter.frequency.value = 3000; gain.gain.value = 0.03;
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain); src.start();
+                    lofiNodes.push(src, gain, filter);
+                }
+                const loopLen = beatDur * 16;
+                function scheduleLoop() {
+                    const now = audioCtx.currentTime; const loopStart = now + 0.1;
+                    for (let bar = 0; bar < 4; bar++) {
+                        const barTime = loopStart + bar * beatDur * 4;
+                        scheduleChord(barTime, bar, beatDur * 4); scheduleBass(barTime, bar, beatDur * 4);
+                        for (let beat = 0; beat < 4; beat++) {
+                            const beatTime = barTime + beat * beatDur;
+                            if (beat === 0 || beat === 2) scheduleKick(beatTime);
+                            if (beat === 1 || beat === 3) scheduleSnare(beatTime);
+                            for (let h = 0; h < 2; h++) { let ht = beatTime + h * beatDur / 2 + (h === 1 ? beatDur * 0.05 : 0); scheduleHat(ht); }
+                        }
+                    }
+                    setTimeout(scheduleLoop, (loopLen - 0.5) * 1000);
+                }
+                startCrackle(); scheduleLoop();
+            } catch(e) { console.log('lofi error', e); }
+        }
+        function stopLofiMusic() { for (const n of lofiNodes) { try { n.disconnect(); } catch(_) {} } lofiNodes = []; }
+
+        // ========== SECRET MODE MUSIC (dark electronic) ==========
+        let secretMusicNodes = [];
+        function startSecretMusic() {
+            if (secretMusicNodes.length > 0) return;
+            try {
+                const bpm = 145;
+                const beatDur = 60 / bpm;
+                const masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(0.09, audioCtx.currentTime);
+                masterGain.connect(audioCtx.destination);
+                secretMusicNodes.push(masterGain);
+                function scheduleKick(time) {
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(180, time); osc.frequency.exponentialRampToValueAtTime(35, time + 0.1);
+                    gain.gain.setValueAtTime(0.45, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+                    osc.connect(gain); gain.connect(masterGain); osc.start(time); osc.stop(time + 0.15);
+                    secretMusicNodes.push(osc, gain);
+                }
+                function scheduleClap(time) {
+                    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.12, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+                    const src = audioCtx.createBufferSource(); src.buffer = buf;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'lowpass'; filter.frequency.value = 2000;
+                    gain.gain.setValueAtTime(0.18, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                    src.start(time); src.stop(time + 0.12); secretMusicNodes.push(src, gain, filter);
+                }
+                function scheduleHat(time) {
+                    const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.04, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (d.length * 0.25));
+                    const src = audioCtx.createBufferSource(); src.buffer = buf;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'highpass'; filter.frequency.value = 7000;
+                    gain.gain.setValueAtTime(0.07, time); gain.gain.exponentialRampToValueAtTime(0.001, time + 0.03);
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                    src.start(time); src.stop(time + 0.04); secretMusicNodes.push(src, gain, filter);
+                }
+                function scheduleBassLine(time) {
+                    const bNotes = [98, 110, 130.8, 110, 98, 87.3, 98, 130.8];
+                    const idx = Math.floor(((time * bpm / 60) / 2) % bNotes.length);
+                    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth'; osc.frequency.value = bNotes[idx];
+                    const lfo = audioCtx.createOscillator(); const lfoGain = audioCtx.createGain();
+                    lfo.frequency.value = 6; lfoGain.gain.value = 12;
+                    lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+                    gain.gain.setValueAtTime(0.07, time); gain.gain.linearRampToValueAtTime(0.07, time + beatDur * 2 - 0.05); gain.gain.linearRampToValueAtTime(0.001, time + beatDur * 2);
+                    osc.connect(gain); gain.connect(masterGain); osc.start(time); osc.stop(time + beatDur * 2); lfo.start(time); lfo.stop(time + beatDur * 2);
+                    secretMusicNodes.push(osc, gain, lfo, lfoGain);
+                }
+                function schedulePad(time) {
+                    const pNotes = [130.8, 164.8, 196, 261.6];
+                    for (const freq of pNotes) {
+                        const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+                        osc.type = 'sawtooth'; osc.frequency.value = freq;
+                        const filter = audioCtx.createBiquadFilter();
+                        filter.type = 'lowpass'; filter.frequency.value = 180; filter.Q.value = 1.5;
+                        gain.gain.setValueAtTime(0, time); gain.gain.linearRampToValueAtTime(0.025, time + 0.4);
+                        gain.gain.setValueAtTime(0.025, time + beatDur * 8 - 0.4); gain.gain.linearRampToValueAtTime(0, time + beatDur * 8);
+                        osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+                        osc.start(time); osc.stop(time + beatDur * 8); secretMusicNodes.push(osc, gain, filter);
+                    }
+                }
+                function startAmbientNoise() {
+                    const bufSize = audioCtx.sampleRate * 3;
+                    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+                    const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() - 0.5) * 0.006;
+                    const src = audioCtx.createBufferSource(); src.buffer = buf; src.loop = true;
+                    const gain = audioCtx.createGain(); const filter = audioCtx.createBiquadFilter();
+                    filter.type = 'bandpass'; filter.frequency.value = 3000; filter.Q.value = 0.3; gain.gain.value = 0.025;
+                    src.connect(filter); filter.connect(gain); gain.connect(masterGain); src.start();
+                    secretMusicNodes.push(src, gain, filter);
+                }
+                const loopLen = beatDur * 16;
+                function scheduleLoop() {
+                    const now = audioCtx.currentTime; const ls = now + 0.05;
+                    for (let bar = 0; bar < 4; bar++) {
+                        const bt = ls + bar * beatDur * 4;
+                        schedulePad(bt);
+                        for (let beat = 0; beat < 8; beat++) {
+                            const bti = bt + beat * beatDur * 0.5;
+                            scheduleKick(bti);
+                            if (beat % 4 === 3) scheduleClap(bti);
+                            for (let h = 0; h < 2; h++) scheduleHat(bti + h * beatDur / 4);
+                        }
+                    }
+                    scheduleBassLine(ls);
+                    setTimeout(scheduleLoop, (loopLen - 0.3) * 1000);
+                }
+                startAmbientNoise(); scheduleLoop();
+            } catch(e) { console.log('secret music error', e); }
+        }
+        function stopSecretMusic() { for (const n of secretMusicNodes) { try { n.disconnect(); } catch(_) {} } secretMusicNodes = []; }
+
+        // ========== SAVE/LOAD ==========
+        function saveProgress() {
+            try {
+                if (isSecretMode) {
+                    storage.setItem('fb_secret_level', level);
+                    storage.setItem('fb_secret_coins', coins);
+                    storage.setItem('fb_secret_ownedBirds', JSON.stringify(ownedBirds));
+                    storage.setItem('fb_secret_currentBirdIndex', currentBirdIndex);
+                    storage.setItem('fb_secret_savedScoreCheckpoint', savedScoreCheckpoint);
+                } else {
+                    storage.setItem('fb_level', level);
+                    storage.setItem('fb_coins', coins);
+                    storage.setItem('fb_ownedBirds', JSON.stringify(ownedBirds));
+                    storage.setItem('fb_currentBirdIndex', currentBirdIndex);
+                    storage.setItem('fb_savedScoreCheckpoint', savedScoreCheckpoint);
+                    storage.setItem('fb_isSecretMode', isSecretMode ? '1' : '0');
+                }
+            } catch(e) {}
+        }
+        function loadProgress() {
+            try {
+                if (storage.getItem('fb_level')) {
+                    level = parseInt(storage.getItem('fb_level'));
+                    coins = parseInt(storage.getItem('fb_coins'));
+                    ownedBirds = JSON.parse(storage.getItem('fb_ownedBirds'));
+                    currentBirdIndex = parseInt(storage.getItem('fb_currentBirdIndex'));
+                    if (storage.getItem('fb_savedScoreCheckpoint')) savedScoreCheckpoint = parseInt(storage.getItem('fb_savedScoreCheckpoint'));
+                } else if (storage.getItem('fb_secret_level')) {
+                    isSecretMode = true;
+                    level = parseInt(storage.getItem('fb_secret_level'));
+                    coins = parseInt(storage.getItem('fb_secret_coins'));
+                    ownedBirds = JSON.parse(storage.getItem('fb_secret_ownedBirds'));
+                    currentBirdIndex = parseInt(storage.getItem('fb_secret_currentBirdIndex'));
+                    if (storage.getItem('fb_secret_savedScoreCheckpoint')) savedScoreCheckpoint = parseInt(storage.getItem('fb_secret_savedScoreCheckpoint'));
+                }
+            } catch(e) {}
+            const maxIdx = getBirdData().length - 1;
+            if (currentBirdIndex > maxIdx) currentBirdIndex = 0;
+            updateUI();
+        }
+        function updateUI() {
+            if (isOpenWorld) {
+                document.getElementById('hud').style.display = 'none';
+                document.getElementById('pause-btn').classList.add('hidden');
+                document.getElementById('game-container').style.background = '#70c5ce';
+                document.getElementById('menu-title').innerText = 'OPEN WORLD';
+                document.getElementById('menu-coins').parentElement.style.display = 'none';
+                document.getElementById('open-shop-btn').style.display = 'none';
+                document.getElementById('highscore-bar').style.display = '';
+                document.getElementById('hs-display').innerText = openWorldHighScore;
+                document.getElementById('start-btn').innerText = 'PLAY';
+                return;
+            }
+            document.getElementById('menu-title').innerText = 'WHIPPY WING';
+            document.getElementById('menu-coins').parentElement.style.display = '';
+            document.getElementById('open-shop-btn').style.display = '';
+            document.getElementById('start-btn').innerText = 'PLAY GAME';
+            document.getElementById('hud').style.display = '';
+            targetScore = isSecretMode ? 30 : level + 4;
+            document.getElementById('hud-level').innerText = isSecretMode ? 1 : level;
+            document.getElementById('hud-score').innerText = score;
+            document.getElementById('hud-target').innerText = targetScore;
+            document.getElementById('hud-coins').innerText = isSecretMode ? '' : coins;
+            document.getElementById('menu-coins').innerText = isSecretMode ? '9999' : coins;
+            document.getElementById('shop-coins').innerText = isSecretMode ? '9999' : coins;
+            const modeEl = document.getElementById('hud-mode');
+            if (isSecretMode) { modeEl.innerText = '[SECRET] '; } else { modeEl.innerText = ''; }
+            const currentTheme = getTheme(isSecretMode ? 1 : level);
+            document.getElementById('game-container').style.background = currentTheme.bgStart;
+            const titleEl = document.getElementById('menu-title');
+            titleEl.innerText = isSecretMode ? '⚡ SECRET MODE ⚡' : 'WHIPPY WING';
+            const secBtn = document.getElementById('secret-btn');
+            if (!isSecretMode && level >= 10) { secBtn.classList.remove('hidden'); } else { secBtn.classList.add('hidden'); }
+            document.getElementById('open-shop-btn').style.display = isSecretMode ? 'none' : '';
+        }
+        function showScreen(screenId) {
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('shop-screen').classList.add('hidden');
+            document.getElementById('death-screen').classList.add('hidden');
+
+            document.getElementById('pause-screen').classList.add('hidden');
+            document.getElementById('win-screen').classList.add('hidden');
+            if (screenId) {
+                document.getElementById(screenId).classList.remove('hidden');
+                document.getElementById('pause-btn').classList.add('hidden');
+            } else {
+                document.getElementById('pause-btn').classList.remove('hidden');
+            }
+        }
+
+        // ========== DRAW BIRD ==========
+        function drawVectorBird(ctx, x, y, birdName, birdColor, wingCycle, velocity, lvl) {
+            ctx.save();
+            let tilt = Math.min(Math.max(velocity * 0.04, -0.3), 0.5);
+            let squash = 1 + Math.min(Math.max(velocity * 0.015, -0.08), 0.1);
+            let stretch = 1 / squash;
+            ctx.translate(x, y + 2 * (1 - squash));
+            ctx.rotate(tilt);
+            ctx.scale(stretch, squash);
+            if (isSecretMode) ctx.scale(0.7, 0.7);
+            if (!isSecretMode) ctx.scale(0.85, 0.85);
+            let theme = getTheme(lvl);
+            let accentColor = theme.pipeRim;
+            let glowColor = theme.pipeMain;
+            if (birdName === "Sky Flyer") {
+                ctx.fillStyle = birdColor;
+                ctx.beginPath(); ctx.ellipse(0, 0, 16, 12, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(6, -3, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.beginPath(); ctx.arc(8, -3, 2.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(9, -4.5, 1, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "#ff9900";
+                ctx.beginPath(); ctx.moveTo(14, -2); ctx.lineTo(22, 0); ctx.lineTo(14, 3); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = "#cc4400";
+                ctx.beginPath(); ctx.moveTo(-8, 2 + Math.sin(wingCycle) * 4); ctx.lineTo(-16, -4 + Math.sin(wingCycle) * 4);
+                ctx.lineTo(-20, 2 + Math.sin(wingCycle) * 4); ctx.closePath(); ctx.fill();
+                ctx.restore(); return;
+            }
+            ctx.fillStyle = birdColor;
+            if (lvl >= 8) {
+                ctx.fillStyle = lvl === 8 ? "#ff4400" : (lvl === 9 ? "#8844ff" : "#00ff41");
+                ctx.beginPath(); ctx.moveTo(2, -12); ctx.quadraticCurveTo(6, -26, 14, -22);
+                ctx.quadraticCurveTo(10, -16, 12, -12); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = birdColor;
+            } else if (birdName === "Blue Jay" || birdName === "Parrot" || birdName === "Cyber Jay" || birdName === "Void Parrot") {
+                ctx.beginPath(); ctx.moveTo(2, -13); ctx.lineTo(8, -22); ctx.lineTo(12, -13); ctx.closePath(); ctx.fill();
+            } else if (birdName === "Owl" || birdName === "Crystal Owl") {
+                ctx.beginPath(); ctx.moveTo(2, -13); ctx.lineTo(1, -20); ctx.lineTo(6, -13); ctx.moveTo(11, -13); ctx.lineTo(14, -20); ctx.lineTo(13, -13); ctx.closePath(); ctx.fill();
+            } else if (birdName === "Phoenix" || birdName === "Galaxy Phoenix") {
+                ctx.fillStyle = birdName === "Galaxy Phoenix" ? "#ff44aa" : "#ff5722";
+                ctx.beginPath(); ctx.moveTo(4, -12); ctx.quadraticCurveTo(-10, -25, -18, -18); ctx.quadraticCurveTo(-8, -12, 8, -12); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = birdColor;
+            }
+            let tailColor = (birdName === "Phoenix" || birdName === "Galaxy Phoenix") ? (birdName === "Galaxy Phoenix" ? "#ff44aa" : "#ff5722") : birdColor;
+            if (lvl >= 6) tailColor = accentColor;
+            ctx.fillStyle = tailColor;
+            ctx.beginPath(); ctx.moveTo(-12, 2); ctx.lineTo(-25, -4); ctx.lineTo(-21, 3); ctx.lineTo(-26, 9); ctx.lineTo(-12, 6); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,0.08)"; ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(-14, 3); ctx.lineTo(-23, -1); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-14, 5); ctx.lineTo(-24, 7); ctx.stroke();
+            if (lvl >= 5) {
+                ctx.fillStyle = tailColor; ctx.beginPath(); ctx.moveTo(-16, 3); ctx.lineTo(-30, -3); ctx.lineTo(-26, 4); ctx.lineTo(-32, 10); ctx.lineTo(-16, 7);
+                ctx.closePath(); ctx.globalAlpha = 0.6; ctx.fill(); ctx.globalAlpha = 1;
+            }
+            ctx.fillStyle = birdColor; ctx.beginPath(); ctx.arc(0, 2, 15, 0, Math.PI * 2); ctx.fill();
+            let featherColor = lvl >= 8 ? "rgba(255,200,100,0.15)" : "rgba(0,0,0,0.06)";
+            ctx.fillStyle = featherColor;
+            for (let ft = 0; ft < 6; ft++) { let fx = -5 + ft * 3 + Math.sin(ft * 1.3) * 2, fy = -2 + ft * 2.5 + Math.cos(ft * 0.8) * 2; ctx.beginPath(); ctx.arc(fx, fy, 1.2, 0, Math.PI * 2); ctx.fill(); }
+            if (lvl >= 6 && lvl <= 8) { ctx.fillStyle = "rgba(255,100,50,0.15)"; ctx.beginPath(); ctx.ellipse(-2, 6, 9, 6, 0, 0, Math.PI * 2); ctx.fill(); }
+            else if (lvl === 10) { ctx.fillStyle = "rgba(0,255,65,0.1)"; ctx.beginPath(); ctx.ellipse(-2, 6, 9, 6, 0, 0, Math.PI * 2); ctx.fill(); }
+            else if (birdName !== "Raven" && birdName !== "Mecha Bird" && birdName !== "Night Raven" && birdName !== "Omega Bird") { ctx.fillStyle = "rgba(255,255,255,0.5)"; ctx.beginPath(); ctx.ellipse(-2, 6, 9, 6, 0, 0, Math.PI * 2); ctx.fill(); }
+            else if (birdName === "Mecha Bird" || birdName === "Omega Bird") { ctx.fillStyle = birdName === "Omega Bird" ? "#444" : "#9e9e9e"; ctx.beginPath(); ctx.ellipse(-2, 6, 8, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+            if (lvl === 3 || lvl === 5 || lvl === 7) { ctx.strokeStyle = "rgba(0,0,0,0.08)"; ctx.lineWidth = 1; for (let st = 0; st < 3; st++) { ctx.beginPath(); ctx.moveTo(-8 + st * 6, -4 + st * 2); ctx.lineTo(-3 + st * 6, 8 + st * 1); ctx.stroke(); } }
+            ctx.fillStyle = birdColor; ctx.beginPath();
+            if (birdName === "Owl" || birdName === "Crystal Owl") ctx.ellipse(9, -4, 13, 12, 0, 0, Math.PI * 2);
+            else ctx.arc(9, -4, 12, 0, Math.PI * 2);
+            ctx.fill();
+            if (birdName !== "Raven" && birdName !== "Mecha Bird" && birdName !== "Night Raven" && birdName !== "Omega Bird") {
+                let blushColor = lvl >= 5 ? `rgba(200,50,50,0.35)` : (lvl === 10 ? "rgba(0,255,65,0.15)" : "rgba(255,150,150,0.35)");
+                ctx.fillStyle = blushColor; ctx.beginPath(); ctx.ellipse(4, 2, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+            }
+            if (lvl >= 7) { ctx.shadowColor = glowColor; ctx.shadowBlur = lvl >= 9 ? 18 : 10; ctx.fillStyle = "rgba(255,255,255,0.02)"; ctx.beginPath(); ctx.arc(0, 2, 15, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+            let eyeRadius = 5.5, pupilRadius = 2.8;
+            if (birdName === "Owl" || birdName === "Crystal Owl") { eyeRadius = 7; pupilRadius = 3.5; }
+            if (birdName === "Falcon" || birdName === "Eagle" || birdName === "Thunder Falcon" || birdName === "Solar Eagle") eyeRadius = 4.5;
+            let eyeWhite = isSecretMode ? ((lvl * 30 + 100) % 0xffffff).toString(16).padStart(6,'0') : "#ffffff";
+            if (lvl === 6) eyeWhite = isSecretMode ? "#ff00ff" : "#444488";
+            else if (lvl === 8) eyeWhite = isSecretMode ? "#00ff88" : "#ff4400";
+            else if (lvl === 9) eyeWhite = isSecretMode ? "#ff4488" : "#8844ff";
+            else if (lvl === 10) eyeWhite = isSecretMode ? "#ffffff" : "#00ff41";
+            ctx.fillStyle = (birdName === "Mecha Bird" || birdName === "Omega Bird") ? "#ff0055" : eyeWhite;
+            ctx.beginPath(); ctx.arc(10, -5, eyeRadius, 0, Math.PI * 2); ctx.fill();
+            if (birdName !== "Mecha Bird" && birdName !== "Omega Bird") {
+                ctx.fillStyle = "#000000"; ctx.beginPath(); ctx.arc(11.5, -5, pupilRadius, 0, Math.PI * 2); ctx.fill();
+                if (lvl >= 4) { ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(6, -10); ctx.lineTo(12, -9); ctx.stroke(); }
+                ctx.fillStyle = "#ffffff"; ctx.beginPath(); ctx.arc(12.5, -6.5, 1.2, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = "rgba(255,255,255,0.3)"; ctx.beginPath(); ctx.arc(9, -3.5, 1, 0, Math.PI * 2); ctx.fill();
+                if (lvl >= 7) { ctx.shadowColor = glowColor; ctx.shadowBlur = 6; ctx.fillStyle = "rgba(255,255,255,0.1)"; ctx.beginPath(); ctx.arc(11.5, -5, pupilRadius + 1, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+            }
+            ctx.fillStyle = "#ff9800";
+            if (birdName === "Raven" || birdName === "Night Raven") ctx.fillStyle = "#1a1a1a";
+            if (birdName === "Mecha Bird" || birdName === "Omega Bird") ctx.fillStyle = "#757575";
+            if (lvl >= 5) ctx.fillStyle = accentColor;
+            let beakOpen = velocity < -0.5; ctx.beginPath();
+            if (beakOpen) { ctx.moveTo(17, -7); ctx.lineTo(28, -5); ctx.lineTo(17, -1); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(17, 0); ctx.lineTo(26, 3); ctx.lineTo(16, 2); ctx.closePath(); ctx.fill(); }
+            else { ctx.moveTo(17, -7); ctx.lineTo(28, -1); ctx.lineTo(17, 2); ctx.closePath(); ctx.fill(); }
+            ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.beginPath(); ctx.arc(20, -3, 1, 0, Math.PI * 2); ctx.fill();
+            let wingPhase = Math.sin(wingCycle);
+            let wingUp = wingPhase > 0.3;
+            let wingMid = wingPhase > -0.3 && wingPhase <= 0.3;
+            let wingDown = wingPhase <= -0.3;
+            ctx.save(); ctx.translate(-1, 1);
+            ctx.fillStyle = "rgba(0,0,0,0.08)"; ctx.beginPath(); ctx.ellipse(-2, 2, 6, 10, 0, 0, Math.PI * 2); ctx.fill();
+            let wingColor = birdColor; if (lvl >= 8) wingColor = accentColor;
+            ctx.fillStyle = wingColor; ctx.strokeStyle = "rgba(0, 0, 0, 0.2)"; ctx.lineWidth = 1.5; ctx.beginPath();
+            if (lvl === 10) {
+                if (wingUp) { ctx.moveTo(4, -2); ctx.lineTo(-4, -14); ctx.lineTo(-10, -10); ctx.lineTo(-4, -2); ctx.lineTo(4, 4); }
+                else if (wingMid) { ctx.moveTo(4, -2); ctx.lineTo(-6, -10); ctx.lineTo(-12, -4); ctx.lineTo(-6, 2); ctx.lineTo(4, 5); }
+                else { ctx.moveTo(4, -2); ctx.lineTo(-4, 6); ctx.lineTo(-10, 8); ctx.lineTo(-4, 6); ctx.lineTo(4, 5); }
+            } else if (lvl === 6) {
+                if (wingUp) { ctx.moveTo(4, -2); ctx.lineTo(-5, -18); ctx.lineTo(-14, -14); ctx.lineTo(-8, -6); ctx.lineTo(4, 3); }
+                else if (wingMid) { ctx.moveTo(4, -2); ctx.lineTo(-6, -13); ctx.lineTo(-16, -8); ctx.lineTo(-10, 0); ctx.lineTo(4, 5); }
+                else { ctx.moveTo(4, -2); ctx.lineTo(-4, 6); ctx.lineTo(-14, 12); ctx.lineTo(-6, 8); ctx.lineTo(4, 5); }
+            } else if (lvl === 8) {
+                if (wingUp) { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-6, -20, -16, -16); ctx.quadraticCurveTo(-10, -8, -4, -2); ctx.quadraticCurveTo(-8, -6, 4, 3); }
+                else if (wingMid) { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-8, -14, -18, -10); ctx.quadraticCurveTo(-12, -2, -4, 2); ctx.quadraticCurveTo(-8, 0, 4, 5); }
+                else { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-4, 8, -14, 14); ctx.quadraticCurveTo(-8, 10, -2, 6); ctx.quadraticCurveTo(-6, 8, 4, 5); }
+            } else {
+                if (wingUp) { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-2, -16, -12, -12); ctx.quadraticCurveTo(-6, -4, 4, 4); }
+                else if (wingMid) { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-4, -12, -14, -6); ctx.quadraticCurveTo(-8, 2, 4, 5); }
+                else { ctx.moveTo(4, -2); ctx.quadraticCurveTo(-2, 4, -12, 10); ctx.quadraticCurveTo(-4, 8, 4, 5); }
+            }
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            if (lvl >= 7) { ctx.shadowColor = glowColor; ctx.shadowBlur = 6; ctx.fillStyle = "rgba(255,255,255,0.03)"; ctx.beginPath(); ctx.arc(-2, 0, 8, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; }
+            ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 1;
+            if (lvl !== 10 && lvl !== 6) {
+                if (wingUp) { for (let i = 0; i < 3; i++) { let fx = -4 - i * 2.5, fy = -8 + i * 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - 3, fy + 4); ctx.stroke(); } }
+                else if (wingMid) { for (let i = 0; i < 3; i++) { let fx = -5 - i * 2, fy = -4 + i * 3; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - 4, fy + 3); ctx.stroke(); } }
+                else { for (let i = 0; i < 3; i++) { let fx = -4 - i * 2, fy = 3 + i * 2; ctx.beginPath(); ctx.moveTo(fx, fy); ctx.lineTo(fx - 4, fy + 3); ctx.stroke(); } }
+            } else if (lvl === 10) { ctx.strokeStyle = "rgba(0,255,65,0.15)"; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-4 - i * 3, -4 + i * 3); ctx.lineTo(-8 - i * 2, 2 + i * 2); ctx.stroke(); } }
+            ctx.restore();
+            if (lvl >= 9) { for (let t = 0; t < 3; t++) { ctx.fillStyle = `rgba(150,100,255,${0.15 - t * 0.04})`; ctx.beginPath(); ctx.arc(-8 - t * 5, 4 + t * 2 + Math.sin(Date.now() * 0.005 + t) * 2, 2.5 - t * 0.5, 0, Math.PI * 2); ctx.fill(); } }
+            ctx.restore();
+        }
+
+        // ========== DRAW TAP INDICATOR ==========
+        function drawTapHand(ctx, x, y, time) {
+            if (!tapImg.complete) return;
+            let tap = Math.sin(time * 6);
+            let down = Math.max(0, tap) * 8;
+            let sc = 0.9 + Math.max(0, tap) * 0.15;
+            ctx.save(); ctx.translate(x, y + down * 0.5);
+            // Ripple rings
+            for (let i = 0; i < 2; i++) {
+                let p = (time * 3 + i * 0.5) % 1;
+                let r = 5 + p * 35;
+                let a = 0.3 * (1 - p);
+                ctx.strokeStyle = `rgba(255,255,255,${a})`;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+            }
+            // Glow on press
+            ctx.shadowColor = `rgba(255,255,255,${0.15 + Math.max(0, tap) * 0.35})`;
+            ctx.shadowBlur = 15 + Math.max(0, tap) * 10;
+            // Animated image: scale pulses, shifts down on tap
+            ctx.translate(0, -Math.max(0, tap) * 5);
+            ctx.scale(sc, sc);
+            let w = tapImg.width * 0.22, h = tapImg.height * 0.22;
+            ctx.drawImage(tapImg, -w / 2, -h / 2, w, h);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        // ========== DRAW PIPES ==========
+        function drawDangerousPipe(ctx, x, top, bottom, theme, lvl) {
+            const PW = 50, RH = 24; ctx.lineWidth = 2;
+            function drawSinglePipe(pipeTop, pipeH, isTop) {
+                let rimY = isTop ? pipeTop + pipeH - RH : pipeTop;
+                let bg = ctx.createLinearGradient(x, 0, x + PW, 0);
+                bg.addColorStop(0, darken(theme.pipeRim, 30)); bg.addColorStop(0.12, theme.pipeMain); bg.addColorStop(0.45, lighten(theme.pipeMain, 15)); bg.addColorStop(0.55, lighten(theme.pipeMain, 15)); bg.addColorStop(0.88, theme.pipeMain); bg.addColorStop(1, darken(theme.pipeRim, 30));
+                ctx.fillStyle = bg; ctx.fillRect(x, pipeTop, PW, pipeH);
+                switch (lvl) {
+                    case 1: ctx.strokeStyle = "rgba(60,120,40,0.5)"; ctx.lineWidth = 2; for (let v = 0; v < 3; v++) { let vx = x + 8 + v * 20; ctx.beginPath(); ctx.moveTo(vx, pipeTop); for (let vy = pipeTop; vy < pipeTop + pipeH; vy += 4) { ctx.lineTo(vx + Math.sin(vy * 0.15) * 4, vy); } ctx.stroke(); } ctx.fillStyle = "rgba(255,200,100,0.6)"; for (let f = 0; f < 4; f++) { let fx = x + 10 + f * 14, fy = pipeTop + 15 + f * 20; for (let p = 0; p < 5; p++) { let a = p * Math.PI * 2 / 5; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 2, 0, Math.PI * 2); ctx.fill(); } } ctx.fillStyle = "rgba(255,150,200,0.4)"; for (let b = 0; b < 2; b++) { let bx = x + 5 + b * 30, by = pipeTop + 30 + b * 40; ctx.beginPath(); ctx.ellipse(bx - 3, by, 3, 2, -0.3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(bx + 3, by, 3, 2, 0.3, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 2: ctx.fillStyle = darken(theme.pipeRim, 20); for (let j = 0; j < 5; j++) { let jx = x + j * 12, jy = pipeTop + j * 15; ctx.beginPath(); ctx.moveTo(jx, jy); ctx.lineTo(jx + 6, jy - 8); ctx.lineTo(jx + 12, jy); ctx.closePath(); ctx.fill(); } ctx.fillStyle = "rgba(120,60,20,0.3)"; for (let r = 0; r < 5; r++) { let rx = x + 3 + r * 12 + Math.sin(r * 2.5) * 5, ry = pipeTop + 10 + r * 18 + Math.cos(r * 1.7) * 6; ctx.beginPath(); ctx.arc(rx, ry, 3 + r % 2, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = "rgba(60,40,20,0.4)"; for (let riv = 0; riv < 4; riv++) { ctx.beginPath(); ctx.arc(x + 8 + riv * 16, pipeTop + 8 + riv * 22, 2.5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(x + 52, pipeTop + 8 + riv * 22, 2.5, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 3: ctx.strokeStyle = "rgba(80,100,50,0.5)"; ctx.lineWidth = 1.5; for (let m = 0; m < 4; m++) { let mx = x + 5 + m * 15; ctx.beginPath(); ctx.moveTo(mx, pipeTop + pipeH - 14); ctx.quadraticCurveTo(mx + 2, pipeTop + pipeH - 4, mx - 1, pipeTop + pipeH); ctx.stroke(); } ctx.shadowColor = "#aaff66"; ctx.shadowBlur = 8; ctx.fillStyle = "rgba(150,255,100,0.4)"; for (let ff = 0; ff < 4; ff++) { let ffx = x + 8 + ff * 14 + Math.sin(Date.now() * 0.002 + ff * 3) * 3, ffy = pipeTop + 20 + ff * 22 + Math.cos(Date.now() * 0.003 + ff * 2) * 4; ctx.beginPath(); ctx.arc(ffx, ffy, 2, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; break;
+                    case 4: ctx.fillStyle = "rgba(100,200,80,0.3)"; for (let g = 0; g < 5; g++) { let gx = x + 5 + g * 12; ctx.beginPath(); ctx.arc(gx, isTop ? rimY + RH - 2 : rimY + 2, 4 + g % 2 * 2, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(gx - 1, isTop ? rimY + RH - 4 : rimY + 2, 3, isTop ? 5 : 4); } ctx.fillStyle = "rgba(150,255,120,0.2)"; for (let bb = 0; bb < 4; bb++) { let bbx = x + 6 + bb * 14, bby = pipeTop + 12 + bb * 20; ctx.beginPath(); ctx.arc(bbx, bby, 2 + bb % 2, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = "rgba(150,255,120,0.15)"; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.arc(bbx + 1, bby - 1, 0.8, 0, Math.PI * 2); ctx.stroke(); } break;
+                    case 5: ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1; for (let c = 0; c < 6; c++) { let cx = x + 5 + c * 10, cy = pipeTop + 8 + c * 12; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 8, cy + 5); ctx.lineTo(cx + 4, cy + 12); ctx.stroke(); } ctx.fillStyle = "rgba(0,0,0,0.08)"; for (let c = 0; c < 4; c++) { ctx.fillRect(x + 4 + c * 15, pipeTop + 5 + c * 20, 8, 3); } ctx.fillStyle = "rgba(200,180,100,0.3)"; for (let sd = 0; sd < 5; sd++) { let sdx = x + 6 + sd * 11 + Math.sin(sd * 3.2) * 4, sdy = pipeTop + 15 + sd * 18 + Math.sin(Date.now() * 0.001 + sd) * 3; ctx.beginPath(); ctx.arc(sdx, sdy, 1.2, 0, Math.PI * 2); ctx.fill(); } ctx.strokeStyle = "rgba(80,60,30,0.15)"; ctx.lineWidth = 1.2; for (let h = 0; h < 3; h++) { let hx = x + 8 + h * 20, hy = pipeTop + 10 + h * 28; ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI); ctx.stroke(); ctx.beginPath(); ctx.moveTo(hx - 3, hy); ctx.lineTo(hx + 3, hy - 6); ctx.stroke(); } break;
+                    case 6: ctx.fillStyle = "rgba(100,80,200,0.3)"; for (let s = 0; s < 4; s++) { let sx = x + 5 + s * 15; ctx.beginPath(); ctx.moveTo(sx, pipeTop + pipeH); ctx.lineTo(sx + 4, pipeTop + pipeH - 20); ctx.lineTo(sx + 8, pipeTop + pipeH); ctx.closePath(); ctx.fill(); ctx.strokeStyle = "rgba(150,130,255,0.2)"; ctx.lineWidth = 0.5; ctx.stroke(); } ctx.fillStyle = "rgba(80,60,180,0.15)"; for (let g = 0; g < 3; g++) { ctx.beginPath(); ctx.arc(x + 10 + g * 20, pipeTop + 20 + g * 25, 5, 0, Math.PI * 2); ctx.fill(); } ctx.shadowColor = "#6644ff"; ctx.shadowBlur = 4; ctx.strokeStyle = "rgba(100,80,255,0.15)"; ctx.lineWidth = 0.8; for (let vn = 0; vn < 3; vn++) { ctx.beginPath(); ctx.moveTo(x + 4 + vn * 20, pipeTop); ctx.quadraticCurveTo(x + 12 + vn * 18, pipeTop + pipeH/2, x + 6 + vn * 22, pipeTop + pipeH); ctx.stroke(); } ctx.shadowBlur = 0; break;
+                    case 7: ctx.strokeStyle = "rgba(200,200,255,0.2)"; ctx.lineWidth = 1; for (let l = 0; l < 4; l++) { let lx = x + 8 + l * 14, ly = pipeTop + 10 + l * 20; ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx + 5, ly - 8); ctx.lineTo(lx + 3, ly - 4); ctx.lineTo(lx + 10, ly - 12); ctx.stroke(); } ctx.strokeStyle = "rgba(150,180,255,0.1)"; ctx.lineWidth = 0.8; for (let rn = 0; rn < 6; rn++) { let rnx = x + 4 + rn * 10, rny = pipeTop + 5 + Math.sin(Date.now() * 0.004 + rn) * 10; ctx.beginPath(); ctx.moveTo(rnx, rny); ctx.lineTo(rnx - 2, rny + 8); ctx.stroke(); } break;
+                    case 8: ctx.shadowColor = "#ff4400"; ctx.shadowBlur = 6; for (let lc = 0; lc < 4; lc++) { let lx = x + 6 + lc * 14; ctx.fillStyle = "rgba(255,100,0,0.4)"; ctx.fillRect(lx, pipeTop + 10 + lc * 18, 6, 3); ctx.fillStyle = "rgba(255,200,50,0.3)"; ctx.fillRect(lx + 1, pipeTop + 11 + lc * 18, 4, 1); } ctx.shadowBlur = 0; ctx.fillStyle = "rgba(255,150,50,0.5)"; for (let e = 0; e < 3; e++) { ctx.beginPath(); ctx.arc(x + 10 + e * 18, pipeTop + 30 + e * 25 + Math.sin(Date.now() * 0.003 + e) * 5, 2, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = "rgba(100,100,100,0.08)"; for (let sm = 0; sm < 3; sm++) { let smx = x + 6 + sm * 20, smy = pipeTop + 10 + sm * 30 + Math.sin(Date.now() * 0.002 + sm) * 5; ctx.beginPath(); ctx.arc(smx, smy, 4 + sm, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 9: ctx.fillStyle = "rgba(255,255,255,0.4)"; for (let st = 0; st < 8; st++) { let sx = x + 4 + st * 7 + Math.sin(st * 2.3) * 3, sy = pipeTop + 8 + st * 12 + Math.cos(st * 1.7) * 4; ctx.beginPath(); ctx.arc(sx, sy, 0.8 + st % 2 * 0.5, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = "rgba(150,100,255,0.2)"; for (let sw = 0; sw < 2; sw++) { let cx2 = x + 12 + sw * 35, cy2 = pipeTop + 30 + sw * 35; ctx.beginPath(); ctx.arc(cx2, cy2, 10, 0, Math.PI * 2); ctx.fill(); } ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 1.2; for (let ss = 0; ss < 2; ss++) { let sst = (Date.now() * 0.001 * (0.3 + ss * 0.2)) % 3; ctx.beginPath(); ctx.moveTo(x + 5 + ss * 30 + sst * 15, pipeTop + 5 + ss * 30); ctx.lineTo(x + 15 + ss * 30 + sst * 15, pipeTop + 12 + ss * 30); ctx.stroke(); } break;
+                    case 10: ctx.fillStyle = "rgba(0,255,65,0.08)"; for (let d = 0; d < 8; d++) { let dx = x + 3 + d * 7, dh = 4 + (d * 7) % 12; ctx.fillRect(dx, pipeTop + 5 + d * 14, 3, dh); } ctx.fillStyle = "rgba(0,255,65,0.05)"; ctx.fillRect(x + 5, pipeTop, PW - 10, pipeH); ctx.strokeStyle = "rgba(0,255,65,0.06)"; ctx.lineWidth = 0.5; for (let g = 0; g < 6; g++) { ctx.beginPath(); ctx.moveTo(x + 5, pipeTop + g * 20 + 10); ctx.lineTo(x + PW - 5, pipeTop + g * 20 + 10); ctx.stroke(); } ctx.fillStyle = "rgba(0,255,65,0.06)"; let glitch = Math.sin(Date.now() * 0.005) > 0.7; if (glitch) { for (let gl = 0; gl < 3; gl++) { ctx.fillRect(x + 4 + gl * 18, pipeTop + 10 + gl * 28, 12, 4); } } ctx.fillStyle = "rgba(0,255,65,0.07)"; ctx.font = "6px monospace"; ctx.textAlign = "center"; for (let ch = 0; ch < 5; ch++) { let chars = "01ア"; ctx.fillText(chars[Math.floor(Math.sin(Date.now() * 0.001 + ch) * 10) % chars.length], x + 8 + ch * 11, pipeTop + 18 + ch * 24); } break;
+                }
+                ctx.fillStyle = "rgba(0,0,0,0.35)";
+                if (isTop) ctx.fillRect(x - 8, rimY + RH, PW + 16, 6);
+                else ctx.fillRect(x - 8, rimY - 6, PW + 16, 6);
+                let rg = ctx.createLinearGradient(x - 8, 0, x + PW + 8, 0);
+                rg.addColorStop(0, darken(theme.pipeRim, 40)); rg.addColorStop(0.2, theme.pipeRim); rg.addColorStop(0.5, lighten(theme.pipeRim, 20)); rg.addColorStop(0.8, theme.pipeRim); rg.addColorStop(1, darken(theme.pipeRim, 40));
+                ctx.fillStyle = rg;
+                if (isTop) ctx.fillRect(x - 8, rimY, PW + 16, RH);
+                else ctx.fillRect(x - 8, rimY, PW + 16, RH);
+                ctx.fillStyle = "rgba(255,255,255,0.12)";
+                let edgeY = isTop ? rimY : rimY + RH - 2;
+                ctx.fillRect(x - 6, edgeY, PW + 12, 2);
+                let voidGrad = ctx.createRadialGradient(x + PW/2, isTop ? rimY - 5 : rimY + RH + 5, 2, x + PW/2, isTop ? rimY - 8 : rimY + RH + 8, PW/2);
+                voidGrad.addColorStop(0, "rgba(0,0,0,0.8)"); voidGrad.addColorStop(0.5, "rgba(0,0,0,0.4)"); voidGrad.addColorStop(1, "rgba(0,0,0,0)");
+                ctx.fillStyle = voidGrad;
+                if (isTop) ctx.fillRect(x, rimY - 14, PW, 18);
+                else ctx.fillRect(x, rimY + RH - 4, PW, 18);
+                switch (lvl) {
+                    case 1: ctx.fillStyle = "rgba(255,150,200,0.7)"; for (let f = 0; f < 3; f++) { let fx = x + 5 + f * 22, fy = isTop ? rimY + RH - 6 : rimY + 6; for (let p = 0; p < 6; p++) { let a = p * Math.PI * 2 / 6; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * 3, fy + Math.sin(a) * 3, 1.5, 0, Math.PI * 2); ctx.fill(); } } break;
+                    case 2: ctx.fillStyle = "rgba(0,0,0,0.15)"; for (let sk = 0; sk < 2; sk++) { let skx = x + 10 + sk * 35, sky = isTop ? rimY + RH/2 : rimY + RH/2; ctx.beginPath(); ctx.arc(skx, sky, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(skx - 3, sky + 2, 6, 4); } break;
+                    case 3: ctx.shadowColor = "#66ff44"; ctx.shadowBlur = 8; ctx.fillStyle = "rgba(100,255,80,0.15)"; for (let g = 0; g < 3; g++) { ctx.beginPath(); ctx.arc(x + 8 + g * 22, isTop ? rimY + RH/2 : rimY + RH/2, 4, 0, Math.PI * 2); ctx.fill(); } ctx.shadowBlur = 0; break;
+                    case 4: ctx.fillStyle = "rgba(255,255,0,0.2)"; for (let s = 0; s < 3; s++) { ctx.fillRect(x - 8 + s * 25, isTop ? rimY + 3 : rimY + 3, 12, 6); ctx.fillRect(x - 8 + s * 25, isTop ? rimY + 12 : rimY + 12, 12, 6); } break;
+                    case 5: ctx.strokeStyle = "rgba(0,0,0,0.2)"; ctx.lineWidth = 1.5; for (let cr = 0; cr < 3; cr++) { let crx = x + 5 + cr * 22; ctx.beginPath(); ctx.moveTo(crx, isTop ? rimY : rimY + RH); ctx.lineTo(crx + 5, isTop ? rimY - 8 : rimY + RH + 8); ctx.stroke(); } break;
+                    case 6: ctx.fillStyle = "rgba(120,100,220,0.5)"; for (let sp = 0; sp < 4; sp++) { let spx = x - 4 + sp * 18; ctx.beginPath(); ctx.moveTo(spx, isTop ? rimY + RH : rimY); ctx.lineTo(spx + 5, isTop ? rimY + RH + 5 : rimY - 5); ctx.lineTo(spx + 10, isTop ? rimY + RH : rimY); ctx.closePath(); ctx.fill(); } break;
+                    case 7: ctx.shadowColor = "#4488ff"; ctx.shadowBlur = 4; ctx.strokeStyle = "rgba(100,180,255,0.3)"; ctx.lineWidth = 1.2; for (let ar = 0; ar < 3; ar++) { let arx = x + 5 + ar * 20; ctx.beginPath(); ctx.moveTo(arx, isTop ? rimY + RH : rimY); ctx.quadraticCurveTo(arx + 4 + Math.sin(Date.now() * 0.005 + ar) * 3, isTop ? rimY + RH + 5 : rimY - 5, arx + 2, isTop ? rimY + RH + 8 : rimY - 8); ctx.stroke(); } ctx.shadowBlur = 0; break;
+                    case 8: ctx.shadowColor = "#ff4400"; ctx.shadowBlur = 12; ctx.fillStyle = "rgba(255,80,0,0.3)"; ctx.fillRect(x - 6, isTop ? rimY + RH - 4 : rimY + 4, PW + 12, 6); ctx.shadowBlur = 0; break;
+                    case 9: for (let n = 0; n < 3; n++) { ctx.fillStyle = `rgba(${150 + n * 30},${80 + n * 20},255,0.15)`; ctx.beginPath(); ctx.arc(x + 10 + n * 20, isTop ? rimY + RH/2 : rimY + RH/2, 8 + n * 2, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 10: ctx.shadowColor = "#00ff41"; ctx.shadowBlur = 8; ctx.strokeStyle = "rgba(0,255,65,0.4)"; ctx.lineWidth = 1.5; ctx.strokeRect(x - 8, isTop ? rimY : rimY, PW + 16, RH); ctx.shadowBlur = 0; break;
+                }
+            }
+            drawSinglePipe(0, top, true);
+            drawSinglePipe(GH - bottom, bottom, false);
+        }
+
+        function lighten(h, a) { const n = parseInt(h.slice(1), 16); return `rgb(${Math.min(255,(n>>16)+a)},${Math.min(255,((n>>8)&0xff)+a)},${Math.min(255,(n&0xff)+a)})`; }
+        function darken(h, a) { const n = parseInt(h.slice(1), 16); return `rgb(${Math.max(0,(n>>16)-a)},${Math.max(0,((n>>8)&0xff)-a)},${Math.max(0,(n&0xff)-a)})`; }
+
+        const GROUND_H = 60;
+        const groundStyles = {
+            1: { fill: "#4a7c2e", top: "#6ab83e", stripe: "#3d6b25", grass: "#5ca035" },
+            2: { fill: "#6b4a2e", top: "#8b6a3e", stripe: "#553a1e", grass: "#7a5a33" },
+            3: { fill: "#2d4a3a", top: "#3d7a4a", stripe: "#1d3a2a", grass: "#2a6a3a" },
+            4: { fill: "#3d2a4a", top: "#5d3a6a", stripe: "#2d1a3a", grass: "#4a2a5a" },
+            5: { fill: "#8a6a3a", top: "#aa8a4a", stripe: "#6a4a2a", grass: "#9a7a3a" },
+            6: { fill: "#1a2a2a", top: "#2a4a4a", stripe: "#0a1a1a", grass: "#1a3a3a" },
+            7: { fill: "#2a3a4a", top: "#3a5a6a", stripe: "#1a2a3a", grass: "#2a4a5a" },
+            8: { fill: "#3a1a1a", top: "#5a2a2a", stripe: "#2a0a0a", grass: "#4a1a1a" },
+            9: { fill: "#1a0a2a", top: "#2a1a4a", stripe: "#0a001a", grass: "#1a0a3a" },
+            10: { fill: "#0a1a0a", top: "#0a2a0a", stripe: "#000a00", grass: "#0a1a0a" }
+        };
+
+        function drawGround(ctx, lvl, scroll, time) {
+            let gs = groundStyles[lvl] || groundStyles[1];
+            let baseY = GH - GROUND_H;
+            let baseFill = ctx.createLinearGradient(0, baseY, 0, GH);
+            baseFill.addColorStop(0, gs.top);
+            baseFill.addColorStop(0.15, gs.grass);
+            baseFill.addColorStop(0.5, gs.fill);
+            baseFill.addColorStop(1, darken(gs.fill, 30));
+            ctx.fillStyle = baseFill;
+            ctx.fillRect(0, baseY, GW, GROUND_H);
+            ctx.fillStyle = gs.top;
+            ctx.fillRect(0, baseY, GW, 4);
+            ctx.strokeStyle = gs.stripe; ctx.lineWidth = 0.5;
+            for (let x = -(scroll % 40); x < GW; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, baseY + 3);
+                ctx.lineTo(x + 20, baseY + 3 + Math.sin((x + scroll) * 0.05) * 3);
+                ctx.stroke();
+            }
+
+            if (lvl >= 4) {
+                ctx.fillStyle = "rgba(255,255,255,0.05)";
+                for (let x = -(scroll % 50); x < GW; x += 50) {
+                    let h = 4 + Math.sin(x * 0.2 + lvl + time) * 2;
+                    ctx.fillRect(x, baseY + 14, 2, h);
+                }
+            }
+            if (lvl >= 3) {
+                ctx.shadowColor = gs.top; ctx.shadowBlur = 8;
+                ctx.fillStyle = "rgba(255,255,255,0.04)";
+                for (let i = 0; i < 3; i++) {
+                    let gx = ((scroll * 0.2 + i * 250 + time * 20) % 1000) - 100;
+                    ctx.beginPath(); ctx.arc(gx, baseY - 2, 5 + Math.sin(i + time) * 2, Math.PI, 0); ctx.fill();
+                }
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // ========== DRAW SKY BG ==========
+        function drawSkyBackground(ctx, theme, lvl, scroll, time) {
+            let skyGrad = ctx.createLinearGradient(0, 0, 0, GH - GROUND_H);
+            skyGrad.addColorStop(0, darken(theme.bgStart, lvl >= 4 ? 50 : 20));
+            skyGrad.addColorStop(0.5, theme.bgEnd);
+            skyGrad.addColorStop(1, darken(theme.bgEnd, 30));
+            ctx.fillStyle = skyGrad; ctx.fillRect(0, 0, GW, GH - GROUND_H);
+            if (lvl >= 3) {
+                let moonX = 600, moonY = 70;
+                ctx.shadowColor = lvl >= 8 ? "rgba(255,50,0,0.4)" : "rgba(200,200,200,0.2)";
+                ctx.shadowBlur = 40;
+                ctx.fillStyle = lvl >= 8 ? "rgba(255,80,30,0.2)" : "rgba(220,220,220,0.15)";
+                ctx.beginPath(); ctx.arc(moonX, moonY, 28, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = lvl >= 8 ? "rgba(255,120,50,0.15)" : "rgba(255,255,255,0.1)";
+                ctx.beginPath(); ctx.arc(moonX, moonY, 20, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            if (lvl === 6 || lvl === 9) {
+                ctx.fillStyle = "rgba(255,255,255,0.03)";
+                for (let i = 0; i < 12; i++) {
+                    let sx = ((scroll * 0.2 + i * 70) % 900) - 50;
+                    let sy = 50 + Math.sin(i * 2.3) * 40 + 20;
+                    ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            if (lvl >= 7 && Math.sin(Date.now() * 0.001 * lvl) > 0.92) {
+                ctx.fillStyle = "rgba(200,200,255,0.06)"; ctx.fillRect(0, 0, GW, GH - GROUND_H);
+                ctx.strokeStyle = "rgba(200,200,255,0.15)"; ctx.lineWidth = 2;
+                ctx.beginPath();
+                let lx = 100 + Math.random() * 200;
+                ctx.moveTo(lx, 0); ctx.lineTo(lx + 30 + Math.random() * 40, 80);
+                ctx.lineTo(lx - 20 + Math.random() * 30, 160); ctx.stroke();
+            }
+            drawGround(ctx, lvl, scroll, time);
+        }
+
+        // ========== SHOP ==========
+        function renderShop() {
+            const grid = document.getElementById('shop-grid');
+            grid.innerHTML = "";
+            const data = getBirdData();
+            let recommendedIndex = -1;
+            for (let i = 0; i < data.length; i++) {
+                if (!ownedBirds.includes(data[i].id)) { if (coins >= data[i].price) { recommendedIndex = i; } }
+            }
+            if (recommendedIndex === -1) { for (let i = 0; i < data.length; i++) { if (!ownedBirds.includes(data[i].id)) { recommendedIndex = i; break; } } }
+            data.forEach((bird, index) => {
+                const isOwned = ownedBirds.includes(bird.id);
+                const isActive = currentBirdIndex === index;
+                const canAfford = coins >= bird.price;
+                const isLocked = !isOwned && !canAfford;
+                const isRecommended = (index === recommendedIndex) && canAfford;
+                const item = document.createElement('div');
+                let cls = `shop-item ${isActive ? 'active' : ''} ${isLocked ? 'locked' : ''} ${isRecommended ? 'recommended-yellow' : ''}`;
+                item.className = cls;
+                const lockHtml = isLocked ? '<div class="lock-overlay"><span>🔒</span></div>' : '';
+                const badgeHtml = isRecommended ? '<div class="rec-badge">🔥 BEST BUY</div>' : '';
+                let previewHtml = '';
+                if (isOwned) {
+                    previewHtml = `<canvas id="shop-canvas-${bird.id}" width="60" height="40"></canvas>`;
+                } else {
+                    previewHtml = `<div style="width:60px;height:40px;display:flex;justify-content:center;align-items:center;color:#555;font-size:24px;">?</div>`;
+                }
+                item.innerHTML = `${badgeHtml}<div class="bird-preview-container">${lockHtml}${previewHtml}</div><div style="font-size:12px;font-weight:bold;${isLocked?'color:#666;':''}">${bird.name}</div><div style="font-size:10px;color:#aaa;">Speed: ${bird.speed}</div><button style="font-size:10px;padding:4px 10px;margin:5px 0 0 0;box-shadow:none;${isLocked?'background:#444;color:#888;cursor:not-allowed;':''}" ${isActive ? 'disabled' : isLocked ? 'disabled' : ''} onclick="${isLocked?'':`buyOrEquipBird(${index})`}">${isActive ? 'Equipped' : isOwned ? 'Use' : isLocked ? '🔒 Locked' : '💵 ' + bird.price}</button>`;
+                grid.appendChild(item);
+                if (isOwned) {
+                    setTimeout(() => {
+                        const scanvas = document.getElementById(`shop-canvas-${bird.id}`);
+                        if (scanvas) { const sctx = scanvas.getContext('2d'); sctx.clearRect(0, 0, 60, 40); drawVectorBird(sctx, 26, 20, bird.name, bird.color, 0.5, -2, level); }
+                    }, 10);
+                }
+            });
+        }
+
+        window.buyOrEquipBird = function(index) {
+            const data = getBirdData();
+            const bird = data[index];
+            if (ownedBirds.includes(bird.id)) { currentBirdIndex = index; playSound('buy'); }
+            else if (coins >= bird.price) { coins -= bird.price; ownedBirds.push(bird.id); currentBirdIndex = index; playSound('buy'); }
+            saveProgress(); updateUI(); renderShop();
+        };
+
+        // ========== BUTTON ACTIONS ==========
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const data = getBirdData();
+            const birdCount = data.length;
+            if (currentBirdIndex + 1 < level && level <= birdCount) {
+                document.getElementById('death-title').innerText = "UPGRADE";
+                document.getElementById('death-msg').innerText = `Buy Level ${level} bird in shop.`;
+                showScreen('death-screen');
+                gameState = "DIED";
+                return;
+            }
+            score = savedScoreCheckpoint;
+            resetGame();
+            showScreen(null);
+            if (isSecretMode) startSecretMusic(); else startLofiMusic();
+            gameState = "READY";
+            readyTime = 0;
+        });
+
+        document.getElementById('open-shop-btn').addEventListener('click', () => { renderShop(); showScreen('shop-screen'); gameState = "SHOP"; });
+        document.getElementById('close-shop-btn').addEventListener('click', () => { showScreen('menu-screen'); gameState = "MENU"; });
+        document.getElementById('restart-btn').addEventListener('click', () => {
+            if (isOpenWorld) {
+                savedScoreCheckpoint = 0; score = 0;
+                resetGame(); showScreen(null); gameState = "READY"; readyTime = 0;
+                return;
+            }
+            const data = getBirdData();
+            if (currentBirdIndex + 1 < level && level <= data.length) { alert("Go to the shop and buy a faster bird first!"); return; }
+            resetGame(); showScreen(null); if (isSecretMode) startSecretMusic(); else startLofiMusic(); gameState = "READY"; readyTime = 0;
+        });
+        document.getElementById('home-btn').addEventListener('click', () => {
+            if (!isOpenWorld) return;
+            if (score > openWorldHighScore) {
+                openWorldHighScore = score;
+                try { storage.setItem('fb_ow_highscore', score); } catch(e) {}
+            }
+            isOpenWorld = false;
+            stopSecretMusic(); stopLofiMusic();
+            document.getElementById('hs-display').innerText = openWorldHighScore;
+            document.getElementById('highscore-bar').style.display = '';
+            showScreen('menu-screen'); gameState = "MENU";
+            updateUI();
+        });
+        document.getElementById('death-quit-btn').addEventListener('click', () => { if (isOpenWorld) return; showScreen('menu-screen'); gameState = "MENU"; });
+        document.getElementById('pause-btn').addEventListener('click', () => { if (gameState === "PLAYING") { gameState = "PAUSED"; showScreen('pause-screen'); } });
+        document.getElementById('resume-btn').addEventListener('click', () => { if (gameState === "PAUSED") { showScreen(null); gameState = "PLAYING"; } });
+        // Secret level button
+        document.getElementById('secret-btn').addEventListener('click', () => {
+            playSound('secret');
+            isSecretMode = true;
+            isOpenWorld = false;
+            ownedBirds = [secretBirdsData[0].id];
+            currentBirdIndex = 0;
+            level = 1;
+            coins = 9999;
+            score = 0;
+            savedScoreCheckpoint = 0;
+            deathStreakCount = 0;
+            showScreen(null);
+            stopLofiMusic();
+            startSecretMusic();
+            gameState = "READY";
+            readyTime = 0;
+            updateUI();
+            saveProgress();
+        });
+
+        document.getElementById('openworld-btn').addEventListener('click', () => {
+            playSound('secret');
+            isOpenWorld = true;
+            isSecretMode = false;
+            ownedBirds = [1];
+            currentBirdIndex = 0;
+            level = 1;
+            coins = 0;
+            score = 0;
+            savedScoreCheckpoint = 0;
+            deathStreakCount = 0;
+            resetGame();
+            showScreen(null);
+            stopSecretMusic();
+            stopLofiMusic();
+            gameState = "READY";
+            readyTime = 0;
+            updateUI();
+        });
+
+        document.getElementById('win-quit-btn').addEventListener('click', () => {
+            level = 1; coins = 0; score = 0; savedScoreCheckpoint = 0;
+            ownedBirds = isSecretMode ? [secretBirdsData[0].id] : [1];
+            currentBirdIndex = 0; deathStreakCount = 0;
+            if (!isSecretMode) try { storage.clear(); } catch(e) {}
+            else { stopSecretMusic(); storage.removeItem('fb_secret_level'); storage.removeItem('fb_secret_coins'); storage.removeItem('fb_secret_ownedBirds'); storage.removeItem('fb_secret_currentBirdIndex'); storage.removeItem('fb_secret_savedScoreCheckpoint'); isSecretMode = false; ownedBirds = [1]; }
+            updateUI(); showScreen('menu-screen'); gameState = "MENU";
+        });
+
+        // ========== INPUT ==========
+        function handleInput(e) {
+            const data = getBirdData();
+            const bird = data[currentBirdIndex] || data[0];
+            if (gameState === "PLAYING") {
+                birdVelocity = bird.jump;
+                playSound('jump');
+            } else if (gameState === "READY") {
+                gameState = "PLAYING";
+                birdVelocity = bird.jump;
+                playSound('jump');
+            }
+        }
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') handleInput(e);
+            if (e.code === 'Escape' && gameState === "PLAYING") {
+                gameState = "PAUSED"; showScreen('pause-screen');
+            }
+        });
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); if (audioCtx.state === 'suspended') audioCtx.resume(); handleInput(e); }, { passive: false });
+        canvas.addEventListener('mousedown', () => { if (audioCtx.state === 'suspended') audioCtx.resume(); handleInput(); });
+
+        function jump() { handleInput(); }
+
+        // ========== GAME LOGIC ==========
+        function resetGame() {
+            levelWinPending = false;
+            birdY = Math.round(GH / 2 - 20);
+            birdVelocity = 0;
+            deathDropY = 0; deathDropVel = 0;
+            score = savedScoreCheckpoint;
+            pipes = [];
+            pipeTimer = 0;
+            readyTime = 0;
+            wingFrameCounter = 0;
+            updateUI();
+        }
+
+        function triggerDeath() {
+            if (levelWinPending) return;
+            playSound('death');
+            gameState = "DEATH_DROP";
+            deathDropY = birdY;
+            deathDropVel = birdVelocity;
+            if (isOpenWorld) {
+                document.getElementById('death-title').innerText = "GAME OVER";
+                document.getElementById('death-msg').innerText = `Score: ${score}`;
+                document.getElementById('restart-btn').innerText = "PLAY AGAIN";
+                document.getElementById('death-quit-btn').classList.add('hidden');
+                document.getElementById('home-btn').classList.add('hidden');
+                return;
+            }
+            if (score >= 5) { savedScoreCheckpoint = score; document.getElementById('death-msg').innerText = `Checkpoint saved at ${score} pts. Resume from here.`; }
+            else { savedScoreCheckpoint = 0; document.getElementById('death-msg').innerText = "Score under 5 pts. Reset to 0."; }
+            document.getElementById('restart-btn').classList.remove('hidden');
+            document.getElementById('death-quit-btn').classList.remove('hidden');
+            document.getElementById('home-btn').classList.add('hidden');
+            saveProgress();
+        }
+
+        function checkLevelWin() {
+            levelWinPending = false;
+            if (isSecretMode) {
+                gameState = "WIN";
+                playSound('bigwin');
+                stopSecretMusic();
+                document.getElementById('win-title').innerText = '🏆 SECRET CLEAR! 🏆';
+                document.getElementById('win-msg').innerText = 'You conquered the secret trial! Now enter the Open World.';
+                document.getElementById('secret-btn').classList.add('hidden');
+                document.getElementById('openworld-btn').classList.remove('hidden');
+                showScreen('win-screen');
+                updateUI();
+                return;
+            }
+            gameState = "DIED"; playSound('win'); deathStreakCount = 0; savedScoreCheckpoint = 0;
+            let rewardMoney = 50;
+            if (level >= 3) rewardMoney = 100;
+            if (level >= 6) rewardMoney = 200;
+            if (level >= 8) rewardMoney = 300;
+            coins += rewardMoney;
+            const maxLevel = 10;
+            const data = getBirdData();
+
+            if (level >= maxLevel) {
+                gameState = "WIN";
+                playSound('bigwin');
+                document.getElementById('win-title').innerText = '🎉 YOU WIN! 🎉';
+                document.getElementById('win-msg').innerText = 'You beat all 10 levels! A hidden path awaits... Click SECRET LEVEL!';
+                document.getElementById('secret-btn').classList.remove('hidden');
+                document.getElementById('openworld-btn').classList.add('hidden');
+                showScreen('win-screen');
+                saveProgress(); updateUI();
+                return;
+            }
+
+            if (level < data.length) {
+                let nextBirdCost = data[level].price;
+                if (coins >= nextBirdCost) {
+                    level++;
+                    document.getElementById('death-title').innerText = "LEVEL CLEAR!";
+                    document.getElementById('death-msg').innerText = `Unlocked Lv${level}. Buy it in the shop.`;
+                } else {
+                    document.getElementById('death-title').innerText = "RUN CLEAR!";
+                    document.getElementById('death-msg').innerText = `+💵${rewardMoney}. Need ${nextBirdCost - coins} more coins.`;
+                }
+            } else {
+                level++;
+                document.getElementById('death-title').innerText = "LEVEL CLEAR!";
+                document.getElementById('death-msg').innerText = `Unlocked Lv${level}.`;
+            }
+            saveProgress(); showScreen('death-screen'); updateUI();
+        }
+
+        let secretFinishLineX = -1;
+
+        // ========== MAIN GAME LOOP ==========
+        function loop() {
+            const lvl = isSecretMode ? 1 : level;
+            const currentTheme = getTheme(lvl);
+            const data = getBirdData();
+            const currentBird = data[currentBirdIndex] || data[0];
+
+            // --- DIFFICULTY ---
+            let speedFactor, variableGap, pipeInterval;
+            if (isOpenWorld) {
+                speedFactor = 5.5;
+                variableGap = 160;
+                pipeInterval = 90;
+            } else if (isSecretMode) {
+                let ramp = score >= 10 ? 1 + (score - 10) * 0.06 : 1;
+                speedFactor = (currentBird.speed + 0.5) * ramp;
+                variableGap = Math.max(130, 175 - (score >= 10 ? (score - 10) * 2 : 0));
+                pipeInterval = Math.max(70, 110 - (score >= 10 ? (score - 10) * 1.5 : 0));
+            } else {
+                speedFactor = currentBird.speed + (level - 1) * 0.06 + (level >= 5 ? (level - 4) * 0.08 : 0);
+                variableGap = Math.max(140, 185 - (level - 1) * 4 - (level >= 4 ? (level - 3) * 5 : 0));
+                pipeInterval = Math.max(80, 120 - (level - 1) * 5);
+            }
+
+            // --- FULL-CANVAS BACKDROP (matches game colors exactly) ---
+            let skyTop = offsetY, skyBot = offsetY + (GH - GROUND_H) * scaleFactor;
+            let groundBot = offsetY + GH * scaleFactor;
+            if (skyTop > 0) {
+                ctx.fillStyle = darken(currentTheme.bgStart, lvl >= 4 ? 50 : 20);
+                ctx.fillRect(0, 0, canvas.width, skyTop);
+            }
+            let gs = groundStyles[lvl] || groundStyles[1];
+            let bGrad = ctx.createLinearGradient(0, skyTop, 0, skyBot);
+            bGrad.addColorStop(0, darken(currentTheme.bgStart, lvl >= 4 ? 50 : 20));
+            bGrad.addColorStop(0.5, currentTheme.bgEnd);
+            bGrad.addColorStop(1, darken(currentTheme.bgEnd, 30));
+            ctx.fillStyle = bGrad; ctx.fillRect(0, skyTop, canvas.width, skyBot - skyTop);
+            if (skyBot < groundBot) {
+                let gGrad = ctx.createLinearGradient(0, skyBot, 0, groundBot);
+                gGrad.addColorStop(0, gs.top);
+                gGrad.addColorStop(0.15, gs.grass);
+                gGrad.addColorStop(0.5, gs.fill);
+                gGrad.addColorStop(1, darken(gs.fill, 30));
+                ctx.fillStyle = gGrad; ctx.fillRect(0, skyBot, canvas.width, groundBot - skyBot);
+            }
+            if (groundBot < canvas.height) {
+                ctx.fillStyle = darken(gs.fill, 30);
+                ctx.fillRect(0, groundBot, canvas.width, canvas.height - groundBot);
+            }
+
+            // --- GAME WORLD (transformed + clipped for pipes/bird) ---
+            ctx.save();
+            ctx.translate(offsetX, offsetY); ctx.scale(scaleFactor, scaleFactor);
+            ctx.beginPath(); ctx.rect(0, 0, GW, GH); ctx.clip();
+
+            let gameTime = Date.now() * 0.001;
+            drawSkyBackground(ctx, currentTheme, lvl, groundScroll, gameTime);
+
+            if (gameState === "PLAYING") {
+                groundScroll += speedFactor * 0.8;
+                birdVelocity += gravity;
+                birdY += birdVelocity;
+                let flapSpeed = 0.22; if (birdVelocity < 0) flapSpeed = 0.45;
+                wingFrameCounter += flapSpeed;
+                if (birdY < -15 || birdY > GH - GROUND_H - 10) { triggerDeath(); }
+                pipeTimer++;
+                if (pipeTimer > pipeInterval) {
+                    let maxTop = GH - variableGap - GROUND_H - 20;
+                    let topHeight = Math.random() * (maxTop - 30) + 30;
+                    let pipe = { x: GW + 50, top: topHeight, bottom: GH - topHeight - variableGap, passed: false, gap: variableGap };
+                    // All secret mode levels have oscillating pipes; normal mode only level 10
+                    if (isSecretMode || level === 10) {
+                        pipe.oscOffset = Math.random() * Math.PI * 2;
+                        pipe.baseTop = topHeight;
+                    }
+                    pipes.push(pipe);
+                    pipeTimer = 0;
+                }
+                for (let i = pipes.length - 1; i >= 0; i--) {
+                    pipes[i].x -= speedFactor;
+                    if (pipes[i].oscOffset !== undefined) {
+                        let amp = isSecretMode ? 18 + (isOpenWorld ? 5 : lvl) * 2 : 40;
+                        let spd = isSecretMode ? 0.004 : 0.004;
+                        pipes[i].top = pipes[i].baseTop + Math.sin(Date.now() * spd + pipes[i].oscOffset) * amp;
+                        pipes[i].bottom = GH - pipes[i].top - pipes[i].gap;
+                    }
+                    if (!pipes[i].passed && pipes[i].x < 100) {
+                        pipes[i].passed = true;
+                        score++;
+                        if (!isOpenWorld && score >= targetScore) {
+                            levelWinPending = true;
+                            document.getElementById('hud-score').innerText = targetScore;
+                            if (isSecretMode) { secretFinishLineX = pipes[i].x + 80; }
+                            setTimeout(checkLevelWin, 100); break;
+                        }
+                        updateUI();
+                    }
+                    let bcx = 115, bcy = birdY + 10, br = 12;
+                    let px = pipes[i].x, py = 0, pw = 50, pt = pipes[i].top, pb = GH - pipes[i].bottom;
+                    let cx = Math.max(px, Math.min(bcx, px + pw));
+                    let cy = bcy < pt ? Math.max(py, Math.min(bcy, pt)) : Math.max(pb, Math.min(bcy, GH));
+                    let dx = bcx - cx, dy = bcy - cy;
+                    if (dx * dx + dy * dy < br * br) { triggerDeath(); break; }
+                    if (pipes[i].x < -70) pipes.splice(i, 1);
+                }
+            } else if (gameState === "DEATH_DROP") {
+                deathDropVel += gravity * 1.5;
+                deathDropY += deathDropVel;
+                groundScroll += speedFactor * 0.8;
+                if (deathDropY > GH - GROUND_H + 60) {
+                    gameState = "DIED";
+                    if (isOpenWorld) {
+                        if (score > openWorldHighScore) {
+                            openWorldHighScore = score;
+                            document.getElementById('death-msg').innerText = `NEW HIGH SCORE: ${score}`;
+                            try { storage.setItem('fb_ow_highscore', score); } catch(e) {}
+                        }
+                        showScreen('death-screen');
+                    } else {
+                        document.getElementById('death-title').innerText = "YOU DIED"; showScreen('death-screen');
+                    }
+                }
+            } else if (gameState === "READY") {
+                readyTime += 1;
+                wingFrameCounter = 0.5 + Math.sin(readyTime * 0.05) * 0.3;
+            }
+
+            // --- DRAW PIPES ---
+            pipes.forEach(p => { drawDangerousPipe(ctx, p.x, p.top, p.bottom, currentTheme, lvl); });
+
+            // --- PARALLAX CLOUDS ---
+            ctx.fillStyle = "rgba(255,255,255,0.06)";
+            for (let i = 0; i < 5; i++) {
+                let cx = ((groundScroll * (0.1 + i * 0.05) + i * 180) % 1000) - 100;
+                let cy = 30 + i * 25 + Math.sin(i * 1.7) * 15;
+                ctx.beginPath(); ctx.ellipse(cx, cy, 40 + i * 8, 12 + i * 2, 0, 0, Math.PI * 2); ctx.fill();
+            }
+            if (!isOpenWorld && level >= 8) {
+                ctx.fillStyle = "rgba(255,100,0,0.04)";
+                for (let i = 0; i < 3; i++) {
+                    let sx = ((groundScroll * 0.5 + i * 400) % 1200) - 200;
+                    let sy = 20 + i * 50;
+                    ctx.beginPath(); ctx.arc(sx, sy, 15 + i * 8, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+
+            // --- LEVEL EFFECTS ---
+            if (gameState === "PLAYING" || gameState === "READY" || gameState === "DEATH_DROP") {
+                let time = Date.now() * 0.001;
+                ctx.save();
+                switch (lvl) {
+                    case 1: for (let i = 0; i < 3; i++) { let lx = (time * 30 + i * 200) % 450 - 50, ly = 80 + Math.sin(time * 2 + i) * 40 + i * 60; ctx.fillStyle = "rgba(120,180,80,0.25)"; ctx.beginPath(); ctx.ellipse(lx, ly, 4, 8, Math.sin(time + i) * 0.5, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 2: for (let i = 0; i < 6; i++) { let dx = (time * 20 + i * 100) % 480, dy = 50 + Math.sin(time * 1.5 + i * 2) * 50 + i * 40; ctx.fillStyle = `rgba(180,140,80,${0.1 + Math.sin(time * 2 + i) * 0.05})`; ctx.beginPath(); ctx.arc(dx, dy, 2 + i % 2, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 3: for (let i = 0; i < 8; i++) { let fx = (time * 15 + i * 130 + Math.sin(time + i) * 30) % 500, fy = 60 + Math.sin(time * 1.2 + i * 1.5) * 50 + i * 30, glow = 0.3 + Math.sin(time * 3 + i * 1.7) * 0.15; ctx.fillStyle = `rgba(200,255,100,${glow})`; ctx.shadowColor = "#aaff44"; ctx.shadowBlur = 10; ctx.beginPath(); ctx.arc(fx, fy, 3, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; } break;
+                    case 4: for (let i = 0; i < 5; i++) { let bx = (time * 25 + i * 170) % 500, by = GH - 30 - (time * 20 + i * 60) % 200; ctx.strokeStyle = `rgba(150,255,150,${0.2 + Math.sin(time + i) * 0.1})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx, by, 4 + i % 3, 0, Math.PI * 2); ctx.stroke(); } break;
+                    case 5: for (let i = 0; i < 10; i++) { let sx = (time * 40 + i * 80 + Math.sin(time + i) * 10) % 500, sy = GH - 20 - Math.abs(Math.sin(time * 0.5 + i)) * 60; ctx.fillStyle = `rgba(210,190,130,${0.2 + Math.sin(time * 2 + i) * 0.1})`; ctx.beginPath(); ctx.arc(sx, sy, 1.5, 0, Math.PI * 2); ctx.fill(); } break;
+                    case 6: for (let i = 0; i < 7; i++) { let cx = (time * 18 + i * 140) % 480, cy = 40 + Math.sin(time * 1.8 + i * 2.3) * 60 + i * 35, alpha = 0.2 + Math.sin(time * 4 + i * 3) * 0.15; ctx.fillStyle = `rgba(180,140,255,${alpha})`; ctx.shadowColor = "#aa88ff"; ctx.shadowBlur = 6; ctx.beginPath(); for (let p = 0; p < 4; p++) { let a = p * Math.PI / 2 + time * 0.5, r = 3; p === 0 ? ctx.moveTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r) : ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } ctx.closePath(); ctx.fill(); ctx.shadowBlur = 0; } break;
+                    case 7: for (let i = 0; i < 12; i++) { let rx = (time * 60 + i * 40) % 500, ry = (time * 120 + i * 30) % 350; ctx.strokeStyle = `rgba(150,200,255,${0.15 + Math.sin(time + i * 0.5) * 0.05})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 4, ry + 15); ctx.stroke(); } break;
+                    case 8: for (let i = 0; i < 8; i++) { let ex = (time * 22 + i * 110) % 500, ey = GH - 10 - (time * 15 + i * 45) % 250; ctx.fillStyle = `rgba(255,${120 + Math.sin(time + i) * 50},50,${0.3 + Math.sin(time * 3 + i) * 0.15})`; ctx.shadowColor = "#ff6600"; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(ex, ey, 2 + i % 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0; } break;
+                    case 9: for (let i = 0; i < 2; i++) { let t = (time * 0.3 + i * 0.5) % 1, sx = t * 500, sy = t * 300 + 20; ctx.strokeStyle = `rgba(200,200,255,${0.5 - t * 0.5})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx - 12 - t * 8, sy + 12 + t * 8); ctx.stroke(); } break;
+                    case 10: ctx.fillStyle = `rgba(0,255,65,${Math.sin(time * 50) > 0.9 ? 0.03 : 0})`; ctx.fillRect(0, 0, GW, GH); for (let i = 0; i < 5; i++) { if (Math.sin(time * 30 + i * 5) > 0.92) { let gy = Math.random() * GH; ctx.fillStyle = `rgba(0,255,65,0.06)`; ctx.fillRect(0, gy, GW, 3 + Math.random() * 5); } } break;
+                }
+                ctx.restore();
+            }
+
+            // --- PIPE GLOW EFFECTS ---
+            if (!isOpenWorld && lvl >= 7) {
+                pipes.forEach(p => {
+                    ctx.shadowColor = lvl >= 10 ? "#00ff41" : (lvl >= 9 ? "#8844ff" : (lvl >= 8 ? "#ff4400" : "#4488ff"));
+                    ctx.shadowBlur = 6;
+                    ctx.strokeStyle = "rgba(255,255,255,0.05)";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(p.x - 1, p.top - 1, 62, GH - p.top - p.bottom + 2);
+                    ctx.shadowBlur = 0;
+                });
+            }
+
+            // --- FINISH LINE (SECRET MODE) ---
+            if (isSecretMode && secretFinishLineX >= 0) {
+                let flx = secretFinishLineX;
+                ctx.fillStyle = "rgba(255,215,0,0.5)";
+                for (let fy = 0; fy < GH - GROUND_H; fy += 20) {
+                    let offset = (fy % 40 === 0) ? 0 : 10;
+                    ctx.fillRect(flx + offset, fy, 10, 10);
+                }
+                ctx.fillStyle = "#fff"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center";
+                ctx.fillText("🏁 FINISH", flx + 10, 30);
+                if (birdY + 10 < GH - GROUND_H && Math.abs(115 - flx) < 20 && gameState === "PLAYING" && !levelWinPending) {
+                    levelWinPending = true; setTimeout(checkLevelWin, 100);
+                }
+            }
+
+            // --- OPEN WORLD BIG SCORE ---
+            if (isOpenWorld && (gameState === "PLAYING" || gameState === "READY")) {
+                ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.font = "bold 72px Arial";
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(score, GW / 2, 60);
+            }
+
+            // --- DRAW BIRD ---
+            let activeCycle = wingFrameCounter;
+            let drawBirdY = birdY;
+            let drawBirdVel = birdVelocity;
+            if (gameState === "DEATH_DROP") { drawBirdY = deathDropY; drawBirdVel = deathDropVel; }
+            if (gameState !== "PLAYING" && gameState !== "READY" && gameState !== "DEATH_DROP") activeCycle = 0.5;
+            drawVectorBird(ctx, 115, drawBirdY + 10, currentBird.name, currentBird.color, activeCycle, drawBirdVel, lvl);
+
+            // --- DRAW READY OVERLAY ---
+            if (gameState === "READY") {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(0, 0, GW, GH);
+                drawTapHand(ctx, GW / 2, GH / 2 - 20, readyTime * 0.06);
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 8;
+                ctx.fillStyle = '#fff'; ctx.font = 'bold 20px Arial';
+                let readyText = isOpenWorld ? 'Tap to fly' : (isSecretMode ? 'Tap to begin your trial' : 'Tap the screen to fly');
+                ctx.fillText(readyText, GW / 2, GH / 2 + 50);
+                ctx.shadowBlur = 0;
+                if (isOpenWorld) {
+                    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '14px Arial';
+                    ctx.fillText('Infinite Mode', GW / 2, GH / 2 + 80);
+                }
+            }
+
+            // --- WIN CELEBRATION PARTICLES ---
+            if (gameState === "WIN") {
+                winCelebrationTime += 0.02;
+                for (let i = 0; i < 3; i++) {
+                    let px = Math.random() * GW;
+                    let py = Math.random() * GH;
+                    let colors = ['#ffeb3b', '#ff5722', '#4caf50', '#00bcd4', '#9c27b0', '#ff4081'];
+                    ctx.fillStyle = colors[Math.floor(Math.random() * colors.length)];
+                    ctx.globalAlpha = 0.5 + Math.sin(winCelebrationTime + i) * 0.3;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 2 + Math.random() * 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            ctx.restore();
+            requestAnimationFrame(loop);
+        }
+
+        // ========== GLOBAL CLICK ==========
+        document.addEventListener('click', e => { if (e.target.tagName === 'BUTTON') playSound('click'); });
+
+        loadProgress();
+        loop();
+    </script>
+</body>
+</html>
